@@ -1,5 +1,6 @@
 #include "configuration.h"
 #include "constants.h"
+#include "notes.h"
 
 // Value as read from the PWM input
 int pwm_value;
@@ -11,8 +12,9 @@ void setup()  {
   pinMode(PIN_LASER, OUTPUT);
   pinMode(PIN_PWM, INPUT);
 
-  // Startup beep
-  indicate(3);
+  // Startup sound
+  playNote(NOTE_E0, 125);
+  playNote(NOTE_A0, 125);
 }
 
 void loop()  {
@@ -62,4 +64,22 @@ void indicate(short times) {
     digitalWrite(PIN_LED, LOW);
     delay(TIME_INDICATE_WAIT);
   }
+}
+
+/**
+  Play the specified tone for the specified duration
+
+  @param <int> tone
+    The tone to play in Hz + NOTE_BASE
+  @param <int> duration
+    The time to play the tone for in milliseconds
+*/
+void playNote(int tone, int duration) {
+  for (long i = 0; i < duration * 1000L; i += tone * 2) {
+    digitalWrite(PIN_BUZZER, HIGH);
+    delayMicroseconds(tone);
+    digitalWrite(PIN_BUZZER, LOW);
+    delayMicroseconds(tone);
+  }
+  delay(TIME_PAUSE);
 }

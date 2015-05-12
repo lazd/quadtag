@@ -1,6 +1,9 @@
 // Indicator digital PIN (13 is the built-in indicator LED)
 const short PIN_LED = 13;
 
+// Sensor digital pin
+const short PIN_SENSOR = 12;
+
 // Laser digital pin
 const short PIN_LASER = 11;
 

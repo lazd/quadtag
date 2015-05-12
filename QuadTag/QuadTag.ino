@@ -10,6 +10,7 @@ void setup()  {
   pinMode(PIN_BUZZER, OUTPUT);
   pinMode(PIN_LED, OUTPUT);
   pinMode(PIN_LASER, OUTPUT);
+  pinMode(PIN_SENSOR, INPUT);
   pinMode(PIN_PWM, INPUT);
 
   // Startup sound
@@ -21,7 +22,9 @@ void loop()  {
   // Get the current time
   unsigned long current_time = millis();
 
-  // @todo check if we're being hit
+  // Read data from sensor
+  // int result[2];
+  // senseIR(result);
 
   // Read PWM input value
   int pwm_value = pulseIn(PIN_PWM, HIGH);
@@ -38,6 +41,89 @@ void loop()  {
   ) {
     fire(PLAYER_ID, 0);
     last_fire_time = current_time;
+  }
+}
+
+void senseIR(int result[]) {
+  result[0] = -1;
+  result[1] = -1;
+
+  int who[4];
+  int what[4];
+  int end;
+
+  // Wait for a start bit
+  if (pulseIn(PIN_SENSOR, LOW, 50) < START_BIT) {
+    return;
+  }
+
+  // Read data
+  who[0]   = pulseIn(PIN_SENSOR, LOW);
+  who[1]   = pulseIn(PIN_SENSOR, LOW);
+  who[2]   = pulseIn(PIN_SENSOR, LOW);
+  who[3]   = pulseIn(PIN_SENSOR, LOW);
+  what[0]  = pulseIn(PIN_SENSOR, LOW);
+  what[1]  = pulseIn(PIN_SENSOR, LOW);
+  what[2]  = pulseIn(PIN_SENSOR, LOW);
+  what[3]  = pulseIn(PIN_SENSOR, LOW);
+  end      = pulseIn(PIN_SENSOR, LOW);
+
+  if (end <= END_BIT) {
+    Serial.print("Bad end bit: ");
+    Serial.println(end);
+    return;
+  }
+
+  int player = decodePacket(who);
+
+  Serial.print('Player: ');
+  Serial.println(player);
+
+  int action = decodePacket(what);
+
+  Serial.print('Action: ');
+  Serial.println(action);
+
+  result[0] = action;
+  result[1] = player;
+}
+
+int decodePacket(int packet[]) {
+  int decoded[4];
+  for(int i = 0; i <= 3; i++) {
+    int bit = getBitFromPulse(packet[i]);
+
+    if (bit == -1) {
+      // Bad data
+      Serial.print("Failed to decode packet: ");
+      Serial.print(packet[0]);
+      Serial.print(packet[1]);
+      Serial.print(packet[2]);
+      Serial.print(packet[3]);
+      return -1;
+    }
+
+    decoded[i] = bit;
+  }
+
+  return convert(decoded);
+}
+
+/**
+  Get the value corresponding to a given pulse
+
+  @param <int> pulse_duration
+    The length of the pulse in microseconds
+*/
+int getBitFromPulse(int pulse_duration) {
+  if (pulse_duration > ONE) {
+    return 1;
+  }
+  else if (pulse_duration > ZERO) {
+    return 0;
+  }
+  else {
+    return -1;
   }
 }
 
@@ -109,6 +195,24 @@ void oscillationWrite(int pin, int data) {
     digitalWrite(pin, LOW);
     delayMicroseconds(13);
   }
+}
+
+/**
+  Convert an array of 4 0s and 1s to a number
+
+  @param <int[]> bits
+    An array of 0s and 1s
+*/
+int convert(int bits[]) {
+  int result = 0;
+  int seed = 1;
+  for (int i = 3; i >= 0; i--) {
+    if (bits[i] == 1) {
+      result += seed;
+    }
+    seed = seed * 2;
+  }
+  return result;
 }
 
 /**

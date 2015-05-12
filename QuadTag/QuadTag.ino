@@ -3,7 +3,7 @@
 #include "notes.h"
 
 // Value as read from the PWM input
-unsigned long last_fire_time = 0;
+unsigned long lastFireTime = 0;
 
 void setup()  {
   // Setup pins
@@ -20,27 +20,27 @@ void setup()  {
 
 void loop()  {
   // Get the current time
-  unsigned long current_time = millis();
+  unsigned long currentTime = millis();
 
   // Read data from sensor
   // int result[2];
   // senseIR(PIN_SENSOR, result);
 
   // Read PWM input value
-  int pwm_value = pulseIn(PIN_PWM, HIGH);
+  int pwmValue = pulseIn(PIN_PWM, HIGH);
 
   // Check if we can fire
   if (
     // @todo don't fire if we're being hit
 
     // Check if the trigger is pressed
-    pwm_value > PWM_THRESHOLD &&
+    pwmValue > PWM_THRESHOLD &&
 
     // Check that we're not firing too fast
-    current_time - FIRE_INTERVAL >= last_fire_time
+    currentTime - FIRE_INTERVAL >= lastFireTime
   ) {
     fire(PLAYER_ID, 0);
-    last_fire_time = current_time;
+    lastFireTime = currentTime;
   }
 }
 
@@ -51,7 +51,7 @@ void loop()  {
     The pin to read from
   @param <int[]> result
     The array the result should be stored in.
-     * result[0] = playerID
+     * result[0] = playerId
      * result[1] = action
 */
 void senseIR(int pin, int result[]) {
@@ -97,16 +97,16 @@ int getInt(int pin) {
 
   for (int i = 0; i < 4; i++) {
     // Read the pulse from the sensor
-    int pulse_duration = pulseIn(pin, LOW);
+    int pulseDuration = pulseIn(pin, LOW);
 
     // Get the bit represented by the pulse
-    int bit = getBitFromPulse(pulse_duration);
+    int bit = getBitFromPulse(pulseDuration);
 
     // Check for bad data
     if (bit == -1) {
       result = -1;
       Serial.print("Got invalid pulse: ");
-      Serial.println(pulse_duration);
+      Serial.println(pulseDuration);
     }
 
     // Add the bit to the number
@@ -121,16 +121,16 @@ int getInt(int pin) {
 /**
   Get the value corresponding to a given pulse
 
-  @param <int> pulse_duration
+  @param <int> pulseDuration
     The length of the pulse in microseconds
 
   @returns <int> 0, 1, or -1 for bad fara
 */
-int getBitFromPulse(int pulse_duration) {
-  if (pulse_duration > ONE) {
+int getBitFromPulse(int pulseDuration) {
+  if (pulseDuration > ONE) {
     return 1;
   }
-  else if (pulse_duration > ZERO) {
+  else if (pulseDuration > ZERO) {
     return 0;
   }
   else {

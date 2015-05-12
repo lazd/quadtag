@@ -40,4 +40,4 @@ const int NOTE_B2  = NOTE_B0  / 4;
 const int NOTE_C3  = NOTE_C0  / 8;
 
 // Time between notes in milliseconds
-const int TIME_PAUSE = 50;
+const int NOTE_INTERVAL = 50;

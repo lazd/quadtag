@@ -3,7 +3,7 @@
 #include "notes.h"
 
 // Value as read from the PWM input
-int pwm_value;
+unsigned long last_fire_time = 0;
 
 void setup()  {
   // Setup pins
@@ -18,34 +18,97 @@ void setup()  {
 }
 
 void loop()  {
+  // Get the current time
+  unsigned long current_time = millis();
+
   // @todo check if we're being hit
 
   // Read PWM input value
-  pwm_value = pulseIn(PIN_PWM, HIGH);
+  int pwm_value = pulseIn(PIN_PWM, HIGH);
 
   // Check if we can fire
   if (
     // @todo don't fire if we're being hit
-    pwm_value > PWM_THRESHOLD
+
+    // Check if the trigger is pressed
+    pwm_value > PWM_THRESHOLD &&
+
+    // Check that we're not firing too fast
+    current_time - FIRE_INTERVAL >= last_fire_time
   ) {
-    fire();
+    fire(PLAYER_ID, 0);
+    last_fire_time = current_time;
   }
 }
 
 /**
-  Fire the IR "laser" and beep
+  Fire the IR "laser"
+
+  @param <int> player
+    The player ID
+  @param <int> data
+    Additional data
 */
-void fire() {
+void fire(int player, int data) {
   Serial.println("Firing!");
 
-  // @todo send data instead of just turning on
+  // Turn on the buzzer
   analogWrite(PIN_BUZZER, BUZZER_OUTPUT);
-  digitalWrite(PIN_LASER, HIGH);
-  delay(TIME_FIRE);
 
+  // Turn on indicator LED
+  digitalWrite(PIN_LED, HIGH);
+
+  // Encode data as 1s and 0s
+  int encoded[8];
+  for (int i = 0; i < 4; i++) {
+    encoded[i] = player >> i & B1;
+  }
+
+  for (int i = 4; i < 8; i++) {
+    encoded[i] = data >> i & B1;
+  }
+
+  // Start transmission
+  oscillationWrite(PIN_LASER, START_BIT);
+
+  // Send separation bit
+  digitalWrite(PIN_LASER, HIGH);
+  delayMicroseconds(PULSE_INTERVAL);
+
+  // Send data
+  for (int i = 7; i >= 0; i--) {
+    oscillationWrite(PIN_LASER, encoded[i] == 0 ? ZERO : ONE);
+
+    // Send separation bit
+    digitalWrite(PIN_LASER, HIGH);
+    delayMicroseconds(PULSE_INTERVAL);
+  }
+
+  // End transmission
+  oscillationWrite(PIN_LASER, END_BIT);
+
+  // Turn off indicator LED
+  digitalWrite(PIN_LED, LOW);
+
+  // Turn off the buzzer
   analogWrite(PIN_BUZZER, LOW);
-  digitalWrite(PIN_LASER, LOW);
-  delay(TIME_FIRE_WAIT);
+}
+
+/**
+  Write the given data to the IR transmitter at the specified pin
+
+  @param <int> pin
+    The pin to write to
+  @param <int> data
+    The data to write
+*/
+void oscillationWrite(int pin, int data) {
+  for(int i = 0; i <= data / 26; i++) {
+    digitalWrite(pin, HIGH);
+    delayMicroseconds(13);
+    digitalWrite(pin, LOW);
+    delayMicroseconds(13);
+  }
 }
 
 /**
@@ -58,11 +121,11 @@ void indicate(short times) {
   for (short i = 0; i < times; i++) {
     analogWrite(PIN_BUZZER, BUZZER_OUTPUT);
     digitalWrite(PIN_LED, HIGH);
-    delay(TIME_INDICATE);
+    delay(INDICATOR_DURATION);
 
     analogWrite(PIN_BUZZER, LOW);
     digitalWrite(PIN_LED, LOW);
-    delay(TIME_INDICATE_WAIT);
+    delay(INDICATOR_INTERVAL);
   }
 }
 
@@ -81,5 +144,5 @@ void playNote(int tone, int duration) {
     digitalWrite(PIN_BUZZER, LOW);
     delayMicroseconds(tone);
   }
-  delay(TIME_PAUSE);
+  delay(NOTE_INTERVAL);
 }

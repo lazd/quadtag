@@ -15,3 +15,6 @@ const short PWM_LOW = 1000;
 
 // High value of the PWM input
 const short PWM_HIGH = 2000;
+
+// Player's ID number
+const int PLAYER_ID = 1;

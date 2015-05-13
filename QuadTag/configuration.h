@@ -20,4 +20,4 @@ const short PWM_LOW = 1000;
 const short PWM_HIGH = 2000;
 
 // Player's ID number
-const int PLAYER_ID = 1;
+const int PLAYER_ID = 6;

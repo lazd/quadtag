@@ -14,10 +14,10 @@ const short INDICATOR_INTERVAL = 100;
 const short FIRE_INTERVAL = 100;
 
 // This pulse sets the threshold for a transmission start bit
-const int START_BIT = 2000;
+const int START_BIT = 3000;
 
 // This pulse sets the threshold for a transmission end bit
-const int END_BIT = 3000;
+const int END_BIT = 2000;
 
 // This pulse sets the threshold for a transmission that represents a 1
 const int ONE = 1000;

@@ -23,15 +23,25 @@ void loop()  {
   unsigned long currentTime = millis();
 
   // Read data from sensor
-  // int result[2];
-  // senseIR(PIN_SENSOR, result);
+  int result[2];
+  senseIR(PIN_SENSOR, result);
+
+  bool hit = false;
+  if (result[0] != -1) {
+    hit = true;
+
+    Serial.print("Hit by player ");
+    Serial.print(result[0]);
+    Serial.println("!");
+  }
 
   // Read PWM input value
-  int pwmValue = pulseIn(PIN_PWM, HIGH);
+  int pwmValue = pulseIn(PIN_PWM, HIGH, 10000);
 
   // Check if we can fire
   if (
-    // @todo don't fire if we're being hit
+    // Don't fire if we're being hit
+    !hit &&
 
     // Check if the trigger is pressed
     pwmValue > PWM_THRESHOLD &&
@@ -39,7 +49,7 @@ void loop()  {
     // Check that we're not firing too fast
     currentTime - FIRE_INTERVAL >= lastFireTime
   ) {
-    fire(PLAYER_ID, 0);
+    fire(PLAYER_ID, 3);
     lastFireTime = currentTime;
   }
 }
@@ -59,29 +69,54 @@ void senseIR(int pin, int result[]) {
   result[1] = -1;
 
   // Wait for a start bit
-  if (pulseIn(pin, LOW, 50) < START_BIT) {
+  int start = pulseIn(pin, LOW, 20000);
+  if (start < START_BIT) {
     return;
   }
+
+  // Turn on indicator LED
+  digitalWrite(PIN_LED, HIGH);
 
   // Read data
   int playerId = getInt(pin);
   int action = getInt(pin);
   int end = pulseIn(pin, LOW);
-
   if (end <= END_BIT) {
     Serial.print("Bad end bit: ");
     Serial.println(end);
+
+    // Turn off indicator LED
+    digitalWrite(PIN_LED, LOW);
     return;
   }
 
-  Serial.print('Player ID: ');
-  Serial.println(playerId);
+  if (playerId == -1 || action == -1) {
+    Serial.print("Got bad packet: ");
 
-  Serial.print('Action: ');
-  Serial.println(action);
+    Serial.print("[ ");
+    Serial.print(playerId);
+    Serial.print(", ");
+    Serial.print(action);
+    Serial.println(" ]");
+
+    // Turn off indicator LED
+    digitalWrite(PIN_LED, LOW);
+    return;
+  }
+  else {
+    Serial.print("Got packet: ");
+    Serial.print("[ ");
+    Serial.print(playerId);
+    Serial.print(", ");
+    Serial.print(action);
+    Serial.println(" ]");
+  }
 
   result[0] = playerId;
   result[1] = action;
+
+  // Turn off indicator LED
+  digitalWrite(PIN_LED, LOW);
 }
 
 /**
@@ -111,7 +146,7 @@ int getInt(int pin) {
 
     // Add the bit to the number
     if (result != -1) {
-      who += bit << i;
+      result += bit << i;
     }
   }
 
@@ -161,8 +196,8 @@ void fire(int player, int data) {
     encoded[i] = player >> i & B1;
   }
 
-  for (int i = 4; i < 8; i++) {
-    encoded[i] = data >> i & B1;
+  for (int i = 0; i < 4; i++) {
+    encoded[i + 4] = data >> i & B1;
   }
 
   // Start transmission
@@ -173,7 +208,7 @@ void fire(int player, int data) {
   delayMicroseconds(PULSE_INTERVAL);
 
   // Send data
-  for (int i = 7; i >= 0; i--) {
+  for (int i = 0; i < 8; i++) {
     oscillationWrite(PIN_LASER, encoded[i] == 0 ? ZERO : ONE);
 
     // Send separation bit

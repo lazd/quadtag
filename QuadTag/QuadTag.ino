@@ -1,9 +1,41 @@
 #include "configuration.h"
 #include "constants.h"
 #include "notes.h"
+#include <TimerOne.h>
 
 // Value as read from the PWM input
 unsigned long lastFireTime = 0;
+
+// Time at which the hitLED should be turned off
+unsigned long hitLED_off = 0;
+unsigned long indicatorLED_off = 0;
+
+void flashHitLED(int duration) {
+  if (hitLED_off == 0) {
+    digitalWrite(PIN_HIT_LED, HIGH);
+  }
+  hitLED_off = millis() + duration;
+}
+
+void flashIndicatorLED(int duration) {
+  if (indicatorLED_off == 0) {
+    digitalWrite(PIN_LED, HIGH);
+  }
+  indicatorLED_off = millis() + duration;
+}
+
+void timerCallback() {
+  unsigned long curTime = millis();
+  if (hitLED_off != 0 && hitLED_off < curTime) {
+    digitalWrite(PIN_HIT_LED, LOW);
+    hitLED_off = 0;
+  }
+
+  if (indicatorLED_off != 0 && indicatorLED_off < curTime) {
+    digitalWrite(PIN_LED, LOW);
+    indicatorLED_off = 0;
+  }
+}
 
 void setup()  {
   // Setup pins
@@ -17,6 +49,10 @@ void setup()  {
   // Startup sound
   playNote(NOTE_E0, 125, NOTE_INTERVAL);
   playNote(NOTE_A0, 125, 0);
+
+  // Initialize timer1 with a 10ms period
+  Timer1.initialize(10000);
+  Timer1.attachInterrupt(timerCallback);
 }
 
 void loop()  {
@@ -35,10 +71,9 @@ void loop()  {
     Serial.print(result[0]);
     Serial.println("!");
 
-    // Flash LED and play note
-    digitalWrite(PIN_HIT_LED, HIGH);
-    playNote(NOTE_E1, 25, 0);
-    digitalWrite(PIN_HIT_LED, LOW);
+    // Flash LED and buzz
+    flashHitLED(100);
+    tone(PIN_BUZZER, 440, 250);
   }
 
   // Read PWM input value
@@ -240,24 +275,6 @@ void oscillationWrite(int pin, int data) {
     delayMicroseconds(13);
     digitalWrite(pin, LOW);
     delayMicroseconds(13);
-  }
-}
-
-/**
-  Flash the indicator LED and beep
-
-  @param <short> times
-    The number of times to flash
-*/
-void indicate(short times) {
-  for (short i = 0; i < times; i++) {
-    analogWrite(PIN_BUZZER, BUZZER_OUTPUT);
-    digitalWrite(PIN_LED, HIGH);
-    delay(INDICATOR_DURATION);
-
-    analogWrite(PIN_BUZZER, LOW);
-    digitalWrite(PIN_LED, LOW);
-    delay(INDICATOR_INTERVAL);
   }
 }
 

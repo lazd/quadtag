@@ -9,13 +9,14 @@ void setup()  {
   // Setup pins
   pinMode(PIN_BUZZER, OUTPUT);
   pinMode(PIN_LED, OUTPUT);
+  pinMode(PIN_HIT_LED, OUTPUT);
   pinMode(PIN_LASER, OUTPUT);
   pinMode(PIN_SENSOR, INPUT);
   pinMode(PIN_PWM, INPUT);
 
   // Startup sound
-  playNote(NOTE_E0, 125);
-  playNote(NOTE_A0, 125);
+  playNote(NOTE_E0, 125, NOTE_INTERVAL);
+  playNote(NOTE_A0, 125, 0);
 }
 
 void loop()  {
@@ -33,6 +34,11 @@ void loop()  {
     Serial.print("Hit by player ");
     Serial.print(result[0]);
     Serial.println("!");
+
+    // Flash LED and play note
+    digitalWrite(PIN_HIT_LED, HIGH);
+    playNote(NOTE_E1, 25, 0);
+    digitalWrite(PIN_HIT_LED, LOW);
   }
 
   // Read PWM input value
@@ -184,9 +190,6 @@ int getBitFromPulse(int pulseDuration) {
 void fire(int player, int data) {
   Serial.println("Firing!");
 
-  // Turn on the buzzer
-  analogWrite(PIN_BUZZER, BUZZER_OUTPUT);
-
   // Turn on indicator LED
   digitalWrite(PIN_LED, HIGH);
 
@@ -221,9 +224,6 @@ void fire(int player, int data) {
 
   // Turn off indicator LED
   digitalWrite(PIN_LED, LOW);
-
-  // Turn off the buzzer
-  analogWrite(PIN_BUZZER, LOW);
 }
 
 /**
@@ -266,15 +266,19 @@ void indicate(short times) {
 
   @param <int> tone
     The tone to play in Hz + NOTE_BASE
-  @param <int> duration
+  @param <int> noteDuration
     The time to play the tone for in milliseconds
+  @param <int> delayDuration
+    The time to wait after playing the note in milliseconds
 */
-void playNote(int tone, int duration) {
-  for (long i = 0; i < duration * 1000L; i += tone * 2) {
+void playNote(int tone, int noteDuration, int delayDuration) {
+  for (long i = 0; i < noteDuration * 1000L; i += tone * 2) {
     digitalWrite(PIN_BUZZER, HIGH);
     delayMicroseconds(tone);
     digitalWrite(PIN_BUZZER, LOW);
     delayMicroseconds(tone);
   }
-  delay(NOTE_INTERVAL);
+  if (delayDuration > 0) {
+    delay(delayDuration);
+  }
 }

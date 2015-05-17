@@ -1,9 +1,6 @@
 // Threshold after which the PWM input will be considered on
 const short PWM_THRESHOLD = PWM_LOW + (PWM_HIGH - PWM_LOW) / 2;
 
-// Signal value for buzzer output
-const short BUZZER_OUTPUT = 128;
-
 // Duration the buzzer/LED should be activated for
 const short INDICATOR_DURATION = 100;
 

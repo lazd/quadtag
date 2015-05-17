@@ -1,7 +1,8 @@
 #include "configuration.h"
 #include "constants.h"
-#include "notes.h"
+#include "songs.h"
 #include <TimerOne.h>
+#include <QueueList.h>
 
 // Value as read from the PWM input
 unsigned long lastFireTime = 0;
@@ -10,32 +11,9 @@ unsigned long lastFireTime = 0;
 unsigned long hitLED_off = 0;
 unsigned long indicatorLED_off = 0;
 
-void flashHitLED(int duration) {
-  if (hitLED_off == 0) {
-    digitalWrite(PIN_HIT_LED, HIGH);
-  }
-  hitLED_off = millis() + duration;
-}
-
-void flashIndicatorLED(int duration) {
-  if (indicatorLED_off == 0) {
-    digitalWrite(PIN_LED, HIGH);
-  }
-  indicatorLED_off = millis() + duration;
-}
-
-void timerCallback() {
-  unsigned long curTime = millis();
-  if (hitLED_off != 0 && hitLED_off < curTime) {
-    digitalWrite(PIN_HIT_LED, LOW);
-    hitLED_off = 0;
-  }
-
-  if (indicatorLED_off != 0 && indicatorLED_off < curTime) {
-    digitalWrite(PIN_LED, LOW);
-    indicatorLED_off = 0;
-  }
-}
+// Hold notes and durations to play
+QueueList <unsigned int> noteQueue;
+unsigned long nextNoteTime = 0;
 
 void setup()  {
   // Setup pins
@@ -47,11 +25,10 @@ void setup()  {
   pinMode(PIN_PWM, INPUT);
 
   // Startup sound
-  playNote(NOTE_E0, 125, NOTE_INTERVAL);
-  playNote(NOTE_A0, 125, 0);
+  playSong(song_Charge);
 
-  // Initialize timer1 with a 10ms period
-  Timer1.initialize(10000);
+  // Initialize timer1 with a 16ms period
+  Timer1.initialize(16000);
   Timer1.attachInterrupt(timerCallback);
 }
 
@@ -72,8 +49,8 @@ void loop()  {
     Serial.println("!");
 
     // Flash LED and buzz
-    flashHitLED(100);
-    tone(PIN_BUZZER, 440, 250);
+    flashHitLED(128);
+    playNote(NOTE_A2, 32, 0);
   }
 
   // Read PWM input value
@@ -217,12 +194,12 @@ int getBitFromPulse(int pulseDuration) {
 /**
   Fire the IR "laser"
 
-  @param <int> player
+  @param <unsigned int> player
     The player ID
-  @param <int> data
+  @param <unsigned int> data
     Additional data
 */
-void fire(int player, int data) {
+void fire(unsigned int player, unsigned int data) {
   Serial.println("Firing!");
 
   // Turn on indicator LED
@@ -264,12 +241,12 @@ void fire(int player, int data) {
 /**
   Write the given data to the IR transmitter at the specified pin
 
-  @param <int> pin
+  @param <unsigned int> pin
     The pin to write to
   @param <int> data
     The data to write
 */
-void oscillationWrite(int pin, int data) {
+void oscillationWrite(unsigned int pin, int data) {
   for(int i = 0; i <= data / 26; i++) {
     digitalWrite(pin, HIGH);
     delayMicroseconds(13);
@@ -281,21 +258,84 @@ void oscillationWrite(int pin, int data) {
 /**
   Play the specified tone for the specified duration
 
-  @param <int> tone
-    The tone to play in Hz + NOTE_BASE
-  @param <int> noteDuration
+  @param <unsigned int> tone
+    The tone to play in Hz
+  @param <unsigned int> duration
     The time to play the tone for in milliseconds
-  @param <int> delayDuration
-    The time to wait after playing the note in milliseconds
+  @param <unsigned int> duration
+    The time to rest before the next note in milliseconds
 */
-void playNote(int tone, int noteDuration, int delayDuration) {
-  for (long i = 0; i < noteDuration * 1000L; i += tone * 2) {
-    digitalWrite(PIN_BUZZER, HIGH);
-    delayMicroseconds(tone);
-    digitalWrite(PIN_BUZZER, LOW);
-    delayMicroseconds(tone);
+void playNote(unsigned int tone, unsigned int duration, unsigned int rest) {
+  noteQueue.push(tone);
+  noteQueue.push(duration);
+  noteQueue.push(rest);
+}
+
+/**
+  Play the specified tone for the specified duration
+
+  @param <unsigned int[][3]> song
+    The song to play
+  @param <unsigned int[][0]> tone
+    The tone to play in Hz
+  @param <unsigned int[][1]> duration
+    The time to play the tone for in milliseconds
+  @param <unsigned int[][2]> duration
+    The time to rest before the next note in milliseconds
+*/
+void playSong(unsigned int song[][3]) {
+  for (int i = 0; i < sizeof(*song); i++) {
+    unsigned int *note = song[i];
+    playNote(note[0], note[1], note[2]);
   }
-  if (delayDuration > 0) {
-    delay(delayDuration);
+}
+
+/**
+  Turn the hit LED on for the specific duration
+
+  @param <unsigned int> duration
+    The time to turn the hit LED on for in milliseconds
+*/
+void flashHitLED(int duration) {
+  if (hitLED_off == 0) {
+    digitalWrite(PIN_HIT_LED, HIGH);
+  }
+  hitLED_off = millis() + duration;
+}
+
+/**
+  Turn the indicator LED on for the specific duration
+
+  @param <unsigned int> duration
+    The time to turn the indicator LED on for in milliseconds
+*/
+void flashIndicatorLED(int duration) {
+  if (indicatorLED_off == 0) {
+    digitalWrite(PIN_LED, HIGH);
+  }
+  indicatorLED_off = millis() + duration;
+}
+
+/**
+  Timer interrupt callback
+*/
+void timerCallback() {
+  unsigned long currentTime = millis();
+  if (hitLED_off != 0 && hitLED_off <= currentTime) {
+    digitalWrite(PIN_HIT_LED, LOW);
+    hitLED_off = 0;
+  }
+
+  if (indicatorLED_off != 0 && indicatorLED_off <= currentTime) {
+    digitalWrite(PIN_LED, LOW);
+    indicatorLED_off = 0;
+  }
+
+  if (!noteQueue.isEmpty() && nextNoteTime <= currentTime) {
+    unsigned int note = noteQueue.pop();
+    unsigned int duration = noteQueue.pop();
+    unsigned int rest = noteQueue.pop();
+    tone(PIN_BUZZER, note, duration);
+    nextNoteTime = currentTime + duration + rest;
   }
 }

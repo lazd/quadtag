@@ -8,7 +8,7 @@ const short PIN_HIT_LED = 8;
 const short PIN_SENSOR = 12;
 
 // Laser digital pin
-const short PIN_LASER = 11;
+const short PIN_LASER = 6;
 
 // Buzzer analog pin
 const short PIN_BUZZER = 10;

@@ -1,26 +1,28 @@
-// Threshold after which the PWM input will be considered on
-const short PWM_THRESHOLD = PWM_LOW + (PWM_HIGH - PWM_LOW) / 2;
+// The RC input port and pin
+#define RC_PORT PINE
+#define RC_PIN (1 << PE6)
 
-// Duration the buzzer/LED should be activated for
-const short INDICATOR_DURATION = 100;
+// The interrupt that the RC pin triggers
+#define RC_INTERRUPT 4
 
-// Time to wait before buzzer/LED activation
-const short INDICATOR_INTERVAL = 100;
+// The IR receiver input port and pin
+#define IR_PORT PIND
+#define IR_PIN (1 << PD0)
 
-// Time to wait between pulses
-const short FIRE_INTERVAL = 100;
+// The interrupt that the IR pin triggers
+#define SENSOR_INTERRUPT 0
 
-// This pulse sets the threshold for a transmission start bit
-const int START_BIT = 3000;
+// Indicator digital PIN (13 is the built-in indicator LED)
+#define PIN_LED 13
 
-// This pulse sets the threshold for a transmission end bit
-const int END_BIT = 2000;
+// Hit indicator digital PIN
+#define PIN_HIT_LED 8
 
-// This pulse sets the threshold for a transmission that represents a 1
-const int ONE = 1000;
+// Laser digital pin
+#define PIN_LASER 6
 
-// This pulse sets the threshold for a transmission that represents a 0
-const int ZERO = 400;
+// Buzzer analog pin
+#define PIN_BUZZER 5
 
-// The amount of time to wait between pulses
-const int PULSE_INTERVAL = 300;
+// Time to wait between laser pulses
+#define FIRE_INTERVAL 100

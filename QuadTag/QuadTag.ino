@@ -1,11 +1,10 @@
-#include "configuration.h"
 #include "constants.h"
+#include "protocol.h"
+#include "actions.h"
 #include "songs.h"
+#include "configuration.h"
 #include <TimerOne.h>
 #include <QueueList.h>
-
-// Value as read from the PWM input
-unsigned long lastFireTime = 0;
 
 // Time at which the hitLED should be turned off
 volatile unsigned long hitLED_off = 0;
@@ -15,29 +14,26 @@ volatile unsigned long indicatorLED_off = 0;
 QueueList <unsigned int> noteQueue;
 volatile unsigned long nextNoteTime = 0;
 
-// Micros when the PWM pin went HIGH
-volatile unsigned long pwmPulseStart = 0;
+// Micros when the RC pin went high
+volatile unsigned long rcPulseStart = 0;
 
-// The PWM pulse length
-volatile unsigned int pwmValue = 0;
+// Whether RC input is currently above the threshold
+volatile bool rcOn = false;
 
-void calcPWMSignal() {
-  volatile unsigned long currentTime = micros();
+// Time when the IR pin went high
+volatile unsigned long irPulseStart = 0;
 
-  // If the pin has gone HIGH, record the microseconds since the Arduino started up
-  if (digitalRead(PIN_PWM) == HIGH) {
-    pwmPulseStart = currentTime;
-  }
-  else if (pwmPulseStart > 0) {
-    // Otherwise, the pin has gone LOW
-    // Only worry about this if the timer has actually started
-    // Record the pulse time
-    pwmValue = currentTime - pwmPulseStart;
+// Whether we've started reading a pulse
+volatile boolean irPacketStarted = true;
 
-    // Restart the timer
-    pwmPulseStart = 0;
-  }
-}
+// The partially read IR packet
+volatile char irBuffer = 0;
+
+// The last complete IR packet
+volatile int irPacket = -1;
+
+// The last time the laser was fired
+unsigned long lastFireTime = 0;
 
 void setup()  {
   // Setup pins
@@ -45,15 +41,16 @@ void setup()  {
   pinMode(PIN_LED, OUTPUT);
   pinMode(PIN_HIT_LED, OUTPUT);
   pinMode(PIN_LASER, OUTPUT);
-  pinMode(PIN_SENSOR, INPUT);
-  pinMode(PIN_PWM, INPUT); // Is this necessary?
+
+  // Listen for changes on the interrupt associated with the RC pin
+  attachInterrupt(RC_INTERRUPT, handleRCPinChangeInterrupt, CHANGE);
+
+  // Listen for changes on the interrupt associated with the IR sensor pin
+  attachInterrupt(SENSOR_INTERRUPT, handleIRPinChangeInterrupt, CHANGE);
 
   // Initialize timer1 with a 16ms period
   Timer1.initialize(16000);
   Timer1.attachInterrupt(timerCallback);
-
-  // Listen for changes on the PWM pin, which triggers interrupt 1
-  attachInterrupt(4, calcPWMSignal, CHANGE);
 
   // Startup sound
   playSong(song_Charge);
@@ -63,16 +60,22 @@ void loop()  {
   // Get the current time
   unsigned long currentTime = millis();
 
-  // Read data from sensor
-  int result[2];
-  senseIR(PIN_SENSOR, result);
+  // Disable interrupts so we can read variables set in ISRs
+  noInterrupts();
 
-  bool hit = false;
-  if (result[0] != -1) {
-    hit = true;
+  // Check if we have a packet
+  if (irPacket != -1) {
+    // Extract the player and data from the packet
+    unsigned int player = irPacket >> 4 & 15;
+    unsigned int data = irPacket & 15;
+
+    // Clear the packet to indicate we've processed it already
+    irPacket = -1;
 
     Serial.print("Hit by player ");
-    Serial.print(result[0]);
+    Serial.print(player);
+    Serial.print(" with a ");
+    Serial.print(data);
     Serial.println("!");
 
     // Flash LED and buzz
@@ -80,138 +83,114 @@ void loop()  {
     playNote(NOTE_A2, 32, 0);
   }
 
+  // Re-enable interrupts
+  interrupts();
+
   // Check if we can fire
   if (
-    // Don't fire if we're being hit
-    !hit &&
-
     // Check if the trigger is pressed
-    pwmValue > PWM_THRESHOLD &&
+    rcOn &&
 
     // Check that we're not firing too fast
     currentTime - FIRE_INTERVAL >= lastFireTime
   ) {
-    fire(PLAYER_ID, 3);
+    // Fire lasers
+    fire(PLAYER_ID, ACTION_LASER);
+
+    // Store the fire time so we can limit fire reate
     lastFireTime = currentTime;
   }
 }
 
 /**
-  Get a packet from the IR at the specified pin
-
-  @param <int> pin
-    The pin to read from
-  @param <int[]> result
-    The array the result should be stored in.
-     * result[0] = playerId
-     * result[1] = action
+  Handle pin change interrupts for the RC input
 */
-void senseIR(int pin, int result[]) {
-  result[0] = -1;
-  result[1] = -1;
+void handleRCPinChangeInterrupt() {
+  unsigned long currentTime = micros();
 
-  // Wait for a start bit
-  int start = pulseIn(pin, LOW, 20000);
-  if (start < START_BIT) {
-    return;
+  // Check if the RC pin is high
+  if (RC_PORT & RC_PIN) {
+    // Mark the start of the pulse
+    rcPulseStart = currentTime;
   }
+  else if (rcPulseStart > 0) {
+    // Calculate the pulse length and determine if the RC input is on
+    rcOn = (currentTime - rcPulseStart) > RC_THRESHOLD;
 
-  // Disable interrupts while we run
-  noInterrupts();
-
-  // Read data
-  int playerId = getInt(pin);
-  int action = getInt(pin);
-  int end = pulseIn(pin, LOW);
-  if (end <= END_BIT) {
-    Serial.print("Bad end bit: ");
-    Serial.println(end);
-
-    // Turn off indicator LED
-    digitalWrite(PIN_LED, LOW);
-    return;
+    // Reset the pulse start time
+    rcPulseStart = 0;
   }
-
-  if (playerId == -1 || action == -1) {
-    Serial.print("Got bad packet: ");
-
-    Serial.print("[ ");
-    Serial.print(playerId);
-    Serial.print(", ");
-    Serial.print(action);
-    Serial.println(" ]");
-
-    // Turn off indicator LED
-    digitalWrite(PIN_LED, LOW);
-    return;
-  }
-  else {
-    Serial.print("Got packet: ");
-    Serial.print("[ ");
-    Serial.print(playerId);
-    Serial.print(", ");
-    Serial.print(action);
-    Serial.println(" ]");
-  }
-
-  result[0] = playerId;
-  result[1] = action;
-
-  // Re-enable interrupts
-  interrupts();
 }
 
 /**
-  Read a 4 bit integer from the IR sensor at the specified pin
-
-  @param <int> pin
-    The pin to read from
-
-  @returns <int> 4 bit integer
+  Handle pin change interrupts for the IR pin
 */
-int getInt(int pin) {
-  int result = 0;
+void handleIRPinChangeInterrupt() {
+  unsigned long currentTime = micros();
 
-  for (int i = 0; i < 4; i++) {
-    // Read the pulse from the sensor
-    int pulseDuration = pulseIn(pin, LOW);
+  // Check if the IR pin is low
+  if (!(IR_PORT & IR_PIN)) {
+    // Note the time the pulse started
+    irPulseStart = currentTime;
+  }
+  else if (irPulseStart > 0) {
+    // Calculate the length of the pulse
+    unsigned int pulseLength = currentTime - irPulseStart;
 
-    // Get the bit represented by the pulse
-    int bit = getBitFromPulse(pulseDuration);
+    // Reset the pulse start time
+    irPulseStart = 0;
 
-    // Check for bad data
-    if (bit == -1) {
-      result = -1;
-      Serial.print("Got invalid pulse: ");
-      Serial.println(pulseDuration);
+    if (pulseLength >= START_BIT) {
+      // Mark that we've begun to receive a packet
+      irPacketStarted = true;
+      irBuffer = 0;
     }
+    else if (irPacketStarted) {
+      // Only bother looking for the rest of the packet if we got the start
+      if (pulseLength >= END_BIT) {
+        // Store the read packet
+        irPacket = irBuffer;
 
-    // Add the bit to the number
-    if (result != -1) {
-      result += bit << i;
+        // Mark that
+        irPacketStarted = false;
+      }
+      else if (pulseLength >= ONE) {
+        // Got a one
+        irBuffer = irBuffer << 1 | 1; // Shift all bits to the left one, and set the LSB to 1
+      }
+      else if (pulseLength >= ZERO) {
+        // Got a zero
+        irBuffer = irBuffer << 1; // Shift all bits to the left one, and leave the LSB 0
+      }
+      else {
+        // Bad pulse length, ignore the rest of the packet
+        irPacketStarted = false;
+      }
     }
   }
-
-  return result;
 }
 
 /**
-  Get the value corresponding to a given pulse
-
-  @param <int> pulseDuration
-    The length of the pulse in microseconds
-
-  @returns <int> 0, 1, or -1 for bad fara
+  Handle timer interrupts
 */
-int getBitFromPulse(int pulseDuration) {
-  if (pulseDuration > ONE) {
-    return 1;
+void timerCallback() {
+  unsigned long currentTime = millis();
+  if (hitLED_off != 0 && hitLED_off <= currentTime) {
+    digitalWrite(PIN_HIT_LED, LOW);
+    hitLED_off = 0;
   }
-  else if (pulseDuration > ZERO) {
-    return 0;
+
+  if (indicatorLED_off != 0 && indicatorLED_off <= currentTime) {
+    digitalWrite(PIN_LED, LOW);
+    indicatorLED_off = 0;
   }
-  else {
-    return -1;
+
+  if (!noteQueue.isEmpty() && nextNoteTime <= currentTime) {
+    unsigned int note = noteQueue.pop();
+    unsigned int duration = noteQueue.pop();
+    unsigned int rest = noteQueue.pop();
+    tone(PIN_BUZZER, note, duration);
+    nextNoteTime = currentTime + duration + rest;
   }
 }
 
@@ -224,23 +203,26 @@ int getBitFromPulse(int pulseDuration) {
     Additional data
 */
 void fire(unsigned int player, unsigned int data) {
-  Serial.println("Firing!");
+  Serial.print("Player ");
+  Serial.print(player);
+  Serial.print(" firing a ");
+  Serial.print(data);
+  Serial.println("!");
 
   // Encode data as 1s and 0s
-  int encoded[8];
-  for (int i = 0; i < 4; i++) {
-    encoded[i] = player >> i & B1;
+  char encoded[8];
+  for (int i = 3; i >= 0; i--) {
+    encoded[i] = player >> i & 1;
   }
-
-  for (int i = 0; i < 4; i++) {
-    encoded[i + 4] = data >> i & B1;
+  for (int i = 3; i >= 0; i--) {
+    encoded[i + 4] = data >> i & 1;
   }
-
-  // Disable interrupts while we run
-  noInterrupts();
 
   // Turn on indicator LED
   digitalWrite(PIN_LED, HIGH);
+
+  // Disable interrupts while we run
+  noInterrupts();
 
   // Start transmission
   oscillationWrite(PIN_LASER, START_BIT);
@@ -261,11 +243,14 @@ void fire(unsigned int player, unsigned int data) {
   // End transmission
   oscillationWrite(PIN_LASER, END_BIT);
 
-  // Turn off indicator LED
-  digitalWrite(PIN_LED, LOW);
+  // Add a space for good measure
+  delayMicroseconds(PULSE_INTERVAL);
 
   // Re-enable interrupts
   interrupts();
+
+  // Turn off indicator LED
+  digitalWrite(PIN_LED, LOW);
 }
 
 /**
@@ -279,9 +264,9 @@ void fire(unsigned int player, unsigned int data) {
 void oscillationWrite(unsigned int pin, int data) {
   for(int i = 0; i <= data / 26; i++) {
     digitalWrite(pin, HIGH);
-    delayMicroseconds(13);
+    delayMicroseconds(12);
     digitalWrite(pin, LOW);
-    delayMicroseconds(13);
+    delayMicroseconds(12);
   }
 }
 
@@ -326,7 +311,7 @@ void playSong(unsigned int song[][3]) {
   @param <unsigned int> duration
     The time to turn the hit LED on for in milliseconds
 */
-void flashHitLED(int duration) {
+void flashHitLED(unsigned int duration) {
   if (hitLED_off == 0) {
     digitalWrite(PIN_HIT_LED, HIGH);
   }
@@ -339,33 +324,9 @@ void flashHitLED(int duration) {
   @param <unsigned int> duration
     The time to turn the indicator LED on for in milliseconds
 */
-void flashIndicatorLED(int duration) {
+void flashIndicatorLED(unsigned int duration) {
   if (indicatorLED_off == 0) {
     digitalWrite(PIN_LED, HIGH);
   }
   indicatorLED_off = millis() + duration;
-}
-
-/**
-  Timer interrupt callback
-*/
-void timerCallback() {
-  unsigned long currentTime = millis();
-  if (hitLED_off != 0 && hitLED_off <= currentTime) {
-    digitalWrite(PIN_HIT_LED, LOW);
-    hitLED_off = 0;
-  }
-
-  if (indicatorLED_off != 0 && indicatorLED_off <= currentTime) {
-    digitalWrite(PIN_LED, LOW);
-    indicatorLED_off = 0;
-  }
-
-  if (!noteQueue.isEmpty() && nextNoteTime <= currentTime) {
-    unsigned int note = noteQueue.pop();
-    unsigned int duration = noteQueue.pop();
-    unsigned int rest = noteQueue.pop();
-    tone(PIN_BUZZER, note, duration);
-    nextNoteTime = currentTime + duration + rest;
-  }
 }

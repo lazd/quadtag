@@ -92,8 +92,8 @@ void senseIR(int pin, int result[]) {
     return;
   }
 
-  // Turn on indicator LED
-  digitalWrite(PIN_LED, HIGH);
+  // Disable interrupts while we run
+  noInterrupts();
 
   // Read data
   int playerId = getInt(pin);
@@ -133,8 +133,8 @@ void senseIR(int pin, int result[]) {
   result[0] = playerId;
   result[1] = action;
 
-  // Turn off indicator LED
-  digitalWrite(PIN_LED, LOW);
+  // Re-enable interrupts
+  interrupts();
 }
 
 /**
@@ -202,9 +202,6 @@ int getBitFromPulse(int pulseDuration) {
 void fire(unsigned int player, unsigned int data) {
   Serial.println("Firing!");
 
-  // Turn on indicator LED
-  digitalWrite(PIN_LED, HIGH);
-
   // Encode data as 1s and 0s
   int encoded[8];
   for (int i = 0; i < 4; i++) {
@@ -214,6 +211,12 @@ void fire(unsigned int player, unsigned int data) {
   for (int i = 0; i < 4; i++) {
     encoded[i + 4] = data >> i & B1;
   }
+
+  // Disable interrupts while we run
+  noInterrupts();
+
+  // Turn on indicator LED
+  digitalWrite(PIN_LED, HIGH);
 
   // Start transmission
   oscillationWrite(PIN_LASER, START_BIT);
@@ -236,6 +239,9 @@ void fire(unsigned int player, unsigned int data) {
 
   // Turn off indicator LED
   digitalWrite(PIN_LED, LOW);
+
+  // Re-enable interrupts
+  interrupts();
 }
 
 /**

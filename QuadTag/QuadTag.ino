@@ -8,12 +8,36 @@
 unsigned long lastFireTime = 0;
 
 // Time at which the hitLED should be turned off
-unsigned long hitLED_off = 0;
-unsigned long indicatorLED_off = 0;
+volatile unsigned long hitLED_off = 0;
+volatile unsigned long indicatorLED_off = 0;
 
 // Hold notes and durations to play
 QueueList <unsigned int> noteQueue;
-unsigned long nextNoteTime = 0;
+volatile unsigned long nextNoteTime = 0;
+
+// Micros when the PWM pin went HIGH
+volatile unsigned long pwmPulseStart = 0;
+
+// The PWM pulse length
+volatile unsigned int pwmValue = 0;
+
+void calcPWMSignal() {
+  volatile unsigned long currentTime = micros();
+
+  // If the pin has gone HIGH, record the microseconds since the Arduino started up
+  if (digitalRead(PIN_PWM) == HIGH) {
+    pwmPulseStart = currentTime;
+  }
+  else if (pwmPulseStart > 0) {
+    // Otherwise, the pin has gone LOW
+    // Only worry about this if the timer has actually started
+    // Record the pulse time
+    pwmValue = currentTime - pwmPulseStart;
+
+    // Restart the timer
+    pwmPulseStart = 0;
+  }
+}
 
 void setup()  {
   // Setup pins
@@ -22,14 +46,17 @@ void setup()  {
   pinMode(PIN_HIT_LED, OUTPUT);
   pinMode(PIN_LASER, OUTPUT);
   pinMode(PIN_SENSOR, INPUT);
-  pinMode(PIN_PWM, INPUT);
-
-  // Startup sound
-  playSong(song_Charge);
+  pinMode(PIN_PWM, INPUT); // Is this necessary?
 
   // Initialize timer1 with a 16ms period
   Timer1.initialize(16000);
   Timer1.attachInterrupt(timerCallback);
+
+  // Listen for changes on the PWM pin, which triggers interrupt 1
+  attachInterrupt(4, calcPWMSignal, CHANGE);
+
+  // Startup sound
+  playSong(song_Charge);
 }
 
 void loop()  {
@@ -52,9 +79,6 @@ void loop()  {
     flashHitLED(128);
     playNote(NOTE_A2, 32, 0);
   }
-
-  // Read PWM input value
-  int pwmValue = pulseIn(PIN_PWM, HIGH, 10000);
 
   // Check if we can fire
   if (

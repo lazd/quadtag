@@ -13,8 +13,8 @@ const short PIN_LASER = 6;
 // Buzzer analog pin
 const short PIN_BUZZER = 10;
 
-// PWM input pin
-const short PIN_PWM = 9;
+// PWM input pin (must an interrupt capable pin)
+const short PIN_PWM = 7;
 
 // Low value of the PWM input
 const short PWM_LOW = 1000;

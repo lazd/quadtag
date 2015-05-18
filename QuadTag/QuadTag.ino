@@ -6,15 +6,17 @@
 #include <TimerOne.h>
 #include <QueueList.h>
 
-// Time at which the hitLED should be turned off
+// Time at which the hit LED should be turned off
 volatile unsigned long hitLED_off = 0;
+
+// Time at which the indicator LED should be turned off
 volatile unsigned long indicatorLED_off = 0;
 
 // Hold notes and durations to play
 QueueList <unsigned int> noteQueue;
 volatile unsigned long nextNoteTime = 0;
 
-// Micros when the RC pin went high
+// Time when the RC pin went high
 volatile unsigned long rcPulseStart = 0;
 
 // Whether RC input is currently above the threshold

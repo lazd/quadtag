@@ -5,8 +5,8 @@
 
 | Part | Usage | Quantity | Number | Price each |
 |------|-------|----------|--------|------------|
-| Arduino Micro | Brain | 1 | - | [$22.49](http://www.mouser.com/ProductDetail/Arduino/A000053/?qs=sGAEpiMZZMvq007EO%252bXAYZAVvNFL4IMQ) |
-| 38KHz IR Reciever | Hit detectors | 1 | [Vishay TSOP4838](http://www.mouser.com/ds/2/427/tsop48-542449.pdf) | [$1.27](http://www.mouser.com/Search/ProductDetail.aspx?R=TSOP4838virtualkey61370000virtualkey782-TSOP4838) |
+| Arduino Pro Micro 5V | Brain | 1 | - | [$19.95](https://www.sparkfun.com/products/12640) |
+| 38KHz IR Reciever | Hit detectors | 2 | [Vishay TSOP4838](http://www.mouser.com/ds/2/427/tsop48-542449.pdf) | [$1.27](http://www.mouser.com/Search/ProductDetail.aspx?R=TSOP4838virtualkey61370000virtualkey782-TSOP4838) |
 | 980nm 5mW Laser | IR Laser | 1 | Aixiz AH980-51230 | [$7.80](http://www.aixiz.com/store/product_info.php/cPath/67/products_id/365) |
 | Piezo Buzzer | Hit indicator buzzer | 1 | [TDK SD1209T5-A1](http://www.mouser.com/ds/2/400/ec211_sd-558554.pdf) | [$2.12](http://www.mouser.com/Search/ProductDetail.aspx?R=SD1209T5-A1virtualkey52130000virtualkey810-SD1209T5-A1) |
 | Red LEDs | Hit indicator LEDs | 4 | [Vishay TLCR5100](http://www.mouser.com/ds/2/427/tlcx510-266692.pdf) | [$0.51](http://www.mouser.com/Search/ProductDetail.aspx?R=TLCR5100virtualkey61370000virtualkey78-TLCR5100) |

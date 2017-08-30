@@ -8,7 +8,7 @@
 | Arduino Pro Micro 5V | Brain | 1 | - | [$19.95](https://www.sparkfun.com/products/12640) |
 | 38KHz IR Reciever | Hit detectors | 2 | [Vishay TSOP4838](http://www.mouser.com/ds/2/427/tsop48-542449.pdf) | [$1.27](http://www.mouser.com/Search/ProductDetail.aspx?R=TSOP4838virtualkey61370000virtualkey782-TSOP4838) |
 | 980nm 5mW Laser | IR Laser | 1 | Aixiz AH980-51230 | [$7.80](http://www.aixiz.com/store/product_info.php/cPath/67/products_id/365) |
-| 950nm 50mW IR LED | IR Laser (subsitution) | 1 | Vishay TSTS7100 | [$3.45](http://www.mouser.com/Search/ProductDetail.aspx?R=TSTS7100virtualkey61370000virtualkey78-TSTS7100) |
+| 950nm 50mW IR LED | IR Laser (subsitution) | 1 | [Vishay TSTS7100](http://www.mouser.com/ds/2/427/tsts7100-777264.pdf) | [$3.45](http://www.mouser.com/Search/ProductDetail.aspx?R=TSTS7100virtualkey61370000virtualkey78-TSTS7100) |
 | Piezo Buzzer | Hit indicator buzzer | 1 | [TDK SD1209T5-A1](http://www.mouser.com/ds/2/400/ec211_sd-558554.pdf) | [$2.12](http://www.mouser.com/Search/ProductDetail.aspx?R=SD1209T5-A1virtualkey52130000virtualkey810-SD1209T5-A1) |
 | Red LEDs | Hit indicator LEDs | 4 | [Vishay TLCR5100](http://www.mouser.com/ds/2/427/tlcx510-266692.pdf) | [$0.51](http://www.mouser.com/Search/ProductDetail.aspx?R=TLCR5100virtualkey61370000virtualkey78-TLCR5100) |
 | 1W 15ohm resistor | Hit indicator resistor | 1 | [MOS1CT52R150J](http://www.mouser.com/ds/2/219/MOS-16613.pdf) | [$0.10](http://www.mouser.com/ProductDetail/KOA-Speer/MOS1CT52R150J/?qs=sGAEpiMZZMtlubZbdhIBIMDn16p%2fHRN%2f254PcrlYqZg%3d) |
